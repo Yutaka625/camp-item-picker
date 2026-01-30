@@ -1,0 +1,456 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  CheckCircle2, 
+  Circle, 
+  Flame, 
+  Tent, 
+  Utensils, 
+  Users, 
+  User, 
+  Plus, 
+  Trash2, 
+  ChevronRight, 
+  ChevronDown,
+  Info,
+  RotateCcw,
+  Sun,
+  Moon,
+  Wind,
+  Snowflake,
+  Leaf,
+  Flower2,
+  Bug,
+  EyeOff,
+  Eye
+} from 'lucide-react';
+
+const App = () => {
+  // --- State ---
+  const [purpose, setPurpose] = useState('overnight'); 
+  const [season, setSeason] = useState('spring'); 
+  const [groupType, setGroupType] = useState('family'); 
+  const [personCount, setPersonCount] = useState(3);
+  const [checkedItems, setCheckedItems] = useState({});
+  const [unnecessaryItems, setUnnecessaryItems] = useState({}); 
+  const [customItems, setCustomItems] = useState([]);
+  const [newItemName, setNewItemName] = useState('');
+  const [showConfig, setShowConfig] = useState(true);
+
+  // --- Master Data ---
+  const masterList = [
+    // 共通・居住
+    { id: 'tent', name: 'テント', categories: ['overnight'], weight: 10 },
+    { id: 'tarp', name: 'タープ', categories: ['overnight', 'daycamp', 'bbq'], weight: 8 },
+    { id: 'chair', name: 'アウトドアチェア', categories: ['overnight', 'daycamp', 'bbq', 'bonfire'], weight: 5, perPerson: true },
+    { id: 'table', name: 'テーブル', categories: ['overnight', 'daycamp', 'bbq'], weight: 5 },
+    { id: 'lantern_main', name: 'メインランタン', categories: ['overnight'], weight: 7 },
+    { id: 'lantern_sub', name: 'サブランタン/ヘッドライト', categories: ['overnight', 'bonfire'], weight: 5 },
+    
+    // 寝具
+    { id: 'sleeping_bag', name: '寝袋（シュラフ）', categories: ['overnight'], weight: 10, perPerson: true },
+    { id: 'mat', name: 'スリーピングマット', categories: ['overnight'], weight: 9, perPerson: true },
+    { id: 'pillow', name: '枕', categories: ['overnight'], weight: 3, perPerson: true },
+    
+    // 調理
+    { id: 'stove', name: 'バーナー/コンロ', categories: ['overnight', 'daycamp', 'bbq'], weight: 7 },
+    { id: 'gas', name: '燃料（ガス缶など）', categories: ['overnight', 'daycamp', 'bbq'], weight: 7 },
+    { id: 'cooler', name: 'クーラーボックス', categories: ['overnight', 'daycamp', 'bbq'], weight: 8 },
+    { id: 'cooker', name: 'クッカー/鍋セット', categories: ['overnight', 'daycamp'], weight: 6 },
+    { id: 'cutlery', name: '食器・カトラリー', categories: ['overnight', 'daycamp', 'bbq'], weight: 5, perPerson: true },
+    { id: 'water_jug', name: 'ウォータージャグ', categories: ['overnight', 'daycamp', 'bbq'], weight: 4 },
+    
+    // 焚き火
+    { id: 'grill', name: '焚き火台/BBQコンロ', categories: ['overnight', 'bbq', 'bonfire'], weight: 9 },
+    { id: 'charcoal', name: '炭/薪', categories: ['bbq', 'bonfire', 'overnight'], weight: 7 },
+    { id: 'fire_tools', name: '火ばさみ・グローブ', categories: ['bbq', 'bonfire', 'overnight'], weight: 6 },
+    { id: 'lighter', name: 'ライター/着火剤', categories: ['bbq', 'bonfire', 'overnight'], weight: 6 },
+    
+    // 衛生
+    { id: 'trash_bag', name: 'ゴミ袋', categories: ['overnight', 'daycamp', 'bbq', 'bonfire'], weight: 5 },
+    { id: 'wet_tissues', name: 'ウェットティッシュ', categories: ['overnight', 'daycamp', 'bbq', 'bonfire'], weight: 5 },
+    { id: 'first_aid', name: '救急セット', categories: ['overnight', 'daycamp', 'bbq'], weight: 5 },
+    
+    // 季節限定アイテム
+    { id: 'kairo', name: '使い捨てカイロ', categories: ['overnight', 'bonfire'], seasons: ['spring', 'winter'], weight: 4, isSeasonal: true },
+    { id: 'extra_blanket', name: '厚手のブランケット', categories: ['overnight', 'daycamp'], seasons: ['spring', 'autumn', 'winter'], weight: 9, isSeasonal: true },
+    { id: 'hot_water_bottle', name: '湯たんぽ', categories: ['overnight'], seasons: ['winter', 'spring'], weight: 6, isSeasonal: true },
+    { id: 'winter_jacket', name: '極暖ダウン/厚手アウター', categories: ['overnight', 'bonfire'], seasons: ['winter'], weight: 10, isSeasonal: true },
+    { id: 'insect_spray', name: '強力虫除けスプレー', categories: ['overnight', 'daycamp', 'bbq'], seasons: ['summer'], weight: 5, isSeasonal: true },
+    { id: 'fan', name: 'ポータブル扇風機', categories: ['overnight', 'daycamp', 'bbq'], seasons: ['summer'], weight: 6, isSeasonal: true },
+    { id: 'sunscreen', name: '日焼け止め', categories: ['overnight', 'daycamp', 'bbq'], seasons: ['summer', 'spring'], weight: 4, isSeasonal: true },
+    { id: 'hat', name: 'つばの広い帽子', categories: ['overnight', 'daycamp', 'bbq'], seasons: ['summer'], weight: 3, isSeasonal: true },
+    { id: 'light_jacket', name: '薄手の羽織もの', categories: ['overnight', 'daycamp'], seasons: ['spring', 'autumn'], weight: 5, isSeasonal: true },
+  ];
+
+  // --- Logic ---
+  const filteredList = useMemo(() => {
+    return masterList.filter(item => {
+      const matchPurpose = item.categories.includes(purpose);
+      const isSeasonMatch = !item.seasons || item.seasons.includes(season);
+      return matchPurpose && isSeasonMatch;
+    });
+  }, [purpose, season]);
+
+  const { totalToPack, currentCheckedCount, progress } = useMemo(() => {
+    const allVisibleItems = [...filteredList, ...customItems];
+    const itemsToConsider = allVisibleItems.filter(item => !unnecessaryItems[item.id]);
+    
+    const total = itemsToConsider.length;
+    const checked = itemsToConsider.filter(item => checkedItems[item.id]).length;
+    const prog = total > 0 ? Math.round((checked / total) * 100) : 0;
+    
+    return { totalToPack: total, currentCheckedCount: checked, progress: prog };
+  }, [filteredList, customItems, checkedItems, unnecessaryItems]);
+
+  const toggleItem = (id) => {
+    setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleUnnecessary = (id, e) => {
+    e.stopPropagation(); 
+    if (checkedItems[id]) return;
+    setUnnecessaryItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleStyleChange = (type) => {
+    setGroupType(type);
+    if (type === 'solo') {
+      setPersonCount(1);
+    } else if (type === 'family') {
+      setPersonCount(3);
+    }
+  };
+
+  const addCustomItem = (e) => {
+    e.preventDefault();
+    if (!newItemName.trim()) return;
+    const newItem = { id: `custom-${Date.now()}`, name: newItemName, isCustom: true };
+    setCustomItems(prev => [...prev, newItem]);
+    setNewItemName('');
+  };
+
+  const removeCustomItem = (id, e) => {
+    e.stopPropagation();
+    setCustomItems(prev => prev.filter(item => item.id !== id));
+    const newChecked = { ...checkedItems };
+    delete newChecked[id];
+    setCheckedItems(newChecked);
+    const newUnnecessary = { ...unnecessaryItems };
+    delete newUnnecessary[id];
+    setUnnecessaryItems(newUnnecessary);
+  };
+
+  const resetAll = () => {
+    if (window.confirm('現在のリストをリセットしますか？')) {
+      setCheckedItems({});
+      setUnnecessaryItems({});
+      setCustomItems([]);
+    }
+  };
+
+  const getSeasonalAdvice = () => {
+    switch (season) {
+      case 'spring':
+        return {
+          title: '春のキャンプアドバイス',
+          text: '日中は暖かいですが夜間は冷え込みます。3月・4月は「冬装備」に近い防寒対策（マットの重ね敷きなど）が必須です。',
+          color: 'bg-emerald-50 border-emerald-100 text-emerald-800',
+          icon: <Flower2 className="text-emerald-500" size={18} />
+        };
+      case 'summer':
+        return {
+          title: '夏のキャンプアドバイス',
+          text: '熱中症対策を万全に。ブヨや蚊などの虫対策も重要です。多めの飲料水と、日陰を作るための大きなタープを推奨します。',
+          color: 'bg-orange-50 border-orange-100 text-orange-800',
+          icon: <Bug className="text-orange-500" size={18} />
+        };
+      case 'autumn':
+        return {
+          title: '秋のキャンプアドバイス',
+          text: '天候が変わりやすい季節です。雨具の準備と、結露対策のための予備タオルがあると便利です。紅葉を楽しみましょう。',
+          color: 'bg-amber-50 border-amber-100 text-amber-800',
+          icon: <Leaf className="text-amber-500" size={18} />
+        };
+      case 'winter':
+        return {
+          title: '冬のキャンプアドバイス',
+          text: '命に関わる冷え込みへの対策を。一酸化炭素チェッカーの持参や、高断熱マット、電気毛布など、過剰なほどの防寒を。',
+          color: 'bg-blue-50 border-blue-100 text-blue-800',
+          icon: <Snowflake className="text-blue-500" size={18} />
+        };
+      default:
+        return null;
+    }
+  };
+
+  const advice = getSeasonalAdvice();
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
+      {/* Header */}
+      <header className="bg-emerald-700 text-white p-4 sticky top-0 z-20 shadow-md">
+        <div className="flex justify-between items-center max-w-md mx-auto">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Tent size={24} />
+            キャンプ持ち物Check
+          </h1>
+          <button onClick={resetAll} className="p-2 hover:bg-emerald-600 rounded-full transition-colors">
+            <RotateCcw size={20} />
+          </button>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="max-w-md mx-auto mt-4 bg-emerald-900/30 rounded-full h-3 overflow-hidden">
+          <div 
+            className="bg-yellow-400 h-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="max-w-md mx-auto mt-1 flex justify-between text-xs font-medium">
+          <span>進捗率: {progress}%</span>
+          <span>{currentCheckedCount} / {totalToPack} アイテム</span>
+        </div>
+      </header>
+
+      <main className="max-w-md mx-auto p-4 space-y-4">
+        
+        {/* Configuration Section */}
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <button 
+            onClick={() => setShowConfig(!showConfig)}
+            className="w-full p-4 flex justify-between items-center font-bold text-slate-700"
+          >
+            <div className="flex items-center gap-2">
+              <Users size={20} className="text-emerald-600" />
+              条件設定
+            </div>
+            {showConfig ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </button>
+          
+          {showConfig && (
+            <div className="p-4 pt-0 space-y-4 border-t border-slate-50">
+              {/* Season Selection */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">季節</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { id: 'spring', label: '春', icon: Flower2 },
+                    { id: 'summer', label: '夏', icon: Sun },
+                    { id: 'autumn', label: '秋', icon: Leaf },
+                    { id: 'winter', label: '冬', icon: Snowflake },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setSeason(opt.id)}
+                      className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border-2 transition-all ${
+                        season === opt.id 
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700' 
+                          : 'border-slate-100 bg-slate-50 text-slate-500'
+                      }`}
+                    >
+                      <opt.icon size={18} />
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Purpose Selection */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">目的</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'overnight', label: '宿泊キャンプ', icon: Moon },
+                    { id: 'daycamp', label: 'デイキャンプ', icon: Sun },
+                    { id: 'bbq', label: 'BBQ', icon: Utensils },
+                    { id: 'bonfire', label: '焚き火のみ', icon: Flame },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setPurpose(opt.id)}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        purpose === opt.id 
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700' 
+                          : 'border-slate-100 bg-slate-50 text-slate-500'
+                      }`}
+                    >
+                      <opt.icon size={16} />
+                      <span className="text-sm font-medium">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">スタイル</label>
+                  <div className="flex bg-slate-100 rounded-lg p-1">
+                    {[
+                      { id: 'solo', label: 'ソロ', icon: User },
+                      { id: 'family', label: 'ファミリー', icon: Users },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => handleStyleChange(opt.id)}
+                        className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md transition-all ${
+                          groupType === opt.id 
+                            ? 'bg-white shadow-sm text-emerald-700' 
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        <opt.icon size={14} />
+                        <span className="text-xs font-bold">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="w-24">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">人数</label>
+                  <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+                    <button 
+                      onClick={() => setPersonCount(Math.max(1, personCount - 1))}
+                      disabled={groupType === 'solo'}
+                      className={`flex-1 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all ${
+                        groupType === 'solo' ? 'opacity-30 cursor-not-allowed' : ''
+                      }`}
+                    >-</button>
+                    <span className="flex-1 text-center text-sm font-bold">{personCount}</span>
+                    <button 
+                      onClick={() => setPersonCount(personCount + 1)}
+                      disabled={groupType === 'solo'}
+                      className={`flex-1 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all ${
+                        groupType === 'solo' ? 'opacity-30 cursor-not-allowed' : ''
+                      }`}
+                    >+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Dynamic Seasonal Tip */}
+        {advice && (
+          <div className={`${advice.color} border rounded-xl p-3 flex gap-3 items-start transition-colors duration-300`}>
+            <div className="shrink-0 mt-0.5">{advice.icon}</div>
+            <div className="text-xs leading-relaxed">
+              <strong>{advice.title}:</strong> {advice.text}
+            </div>
+          </div>
+        )}
+
+        {/* Checklist */}
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold text-slate-500 px-1 flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            持ち物リスト
+          </h2>
+          
+          <div className="space-y-2">
+            {[...filteredList, ...customItems].map(item => {
+              const isUnnecessary = unnecessaryItems[item.id];
+              const isChecked = checkedItems[item.id];
+              
+              return (
+                <div 
+                  key={item.id}
+                  onClick={() => !isUnnecessary && toggleItem(item.id)}
+                  className={`flex items-center gap-3 p-4 bg-white rounded-2xl shadow-sm border transition-all active:scale-[0.98] ${
+                    isUnnecessary 
+                      ? 'border-slate-100 opacity-40 grayscale' 
+                      : isChecked 
+                        ? 'border-emerald-200 bg-emerald-50/30' 
+                        : 'border-slate-100'
+                  }`}
+                >
+                  <div className="shrink-0">
+                    {isChecked ? (
+                      <CheckCircle2 className={isUnnecessary ? "text-slate-400" : "text-emerald-500"} size={24} />
+                    ) : (
+                      <Circle className="text-slate-300" size={24} />
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium transition-all ${
+                      isUnnecessary ? 'text-slate-400' : isChecked ? 'text-slate-400 line-through' : 'text-slate-700'
+                    }`}>
+                      {item.name}
+                      {item.perPerson && personCount > 1 && !isUnnecessary && (
+                        <span className="ml-2 text-xs text-slate-400 font-normal">× {personCount}</span>
+                      )}
+                    </p>
+                    {item.isSeasonal && !isUnnecessary && (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full mt-1 font-bold">
+                        <Wind size={10} /> 季節のおすすめ
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions (Unnecessary toggle / Delete) */}
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={(e) => toggleUnnecessary(item.id, e)}
+                      disabled={isChecked}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isChecked
+                          ? 'text-slate-200 cursor-not-allowed'
+                          : isUnnecessary 
+                            ? 'bg-slate-200 text-slate-600' 
+                            : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'
+                      }`}
+                      title={isChecked ? "準備済みのため「不要」に変更できません" : isUnnecessary ? "リストに戻す" : "不要として除外"}
+                    >
+                      {isUnnecessary ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                    
+                    {item.isCustom && (
+                      <button 
+                        onClick={(e) => removeCustomItem(item.id, e)}
+                        className="p-2 text-slate-300 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Add Item Form */}
+        <form onSubmit={addCustomItem} className="flex gap-2 mt-6">
+          <input
+            type="text"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            placeholder="追加したいもの..."
+            className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+          />
+          <button 
+            type="submit"
+            className="bg-slate-800 text-white p-3 rounded-xl hover:bg-slate-700 transition-colors shadow-md"
+          >
+            <Plus size={24} />
+          </button>
+        </form>
+
+        <footer className="text-center py-8 text-slate-400 text-xs">
+          <p>© 2024 アウトドア持ち物チェッカー</p>
+          <p className="mt-1">「ソロ」スタイルでは人数は1名に固定されます</p>
+        </footer>
+      </main>
+
+      {/* Mobile Floating Action Button */}
+      {progress === 100 && totalToPack > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 animate-bounce z-30 ring-4 ring-yellow-200">
+          <CheckCircle2 size={20} />
+          忘れ物なし！準備完了！
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
